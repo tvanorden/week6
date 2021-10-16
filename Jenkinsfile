@@ -1,118 +1,107 @@
-pipeline {
-	agent any 
-     triggers {
-          pollSCM('H/20 * * * *')
-     }
-     stages {
-          stage("Compile Java") {
-		steps {
-		   git url: "https://github.com/Yaash19/week6" , branch: "master"
-           sh "chmod +x gradlew"
-		   sh "./gradlew compileJava"
-               }
-          }
-          stage("Unit test") {
-		steps {
-                    sh "./gradlew test"
-               }
-          }
-          stage("Code coverage") {
-		  
-          	       steps {
-                              sh "./gradlew jacocoTestReport"
-                              sh "./gradlew jacocoTestCoverageVerification"
-                         }
-                    }
-          stage("Static code analysis") {
-		    
-          		steps {
-                             sh "./gradlew checkstyleMain"
-                         }
-                    }
-                    stage("Package") {
-					 
-          		steps {
-                              sh "./gradlew build"
-                         }
-                    }
-     }
-  }
-
 podTemplate(yaml: '''
-    apiVersion: v1
-    kind: Pod
-    spec:
-      containers:
-      - name: gradle
-        image: gradle:6.3-jdk14
-        command:
-        - sleep
-        args:
-        - 99d
-        volumeMounts:
-        - name: shared-storage
-          mountPath: /mnt
-      - name: kaniko
-        image: gcr.io/kaniko-project/executor:debug
-        command:
-        - sleep
-        args:
-        - 9999999
-        volumeMounts:
-        - name: shared-storage
-          mountPath: /mnt
-        - name: kaniko-secret
-          mountPath: /kaniko/.docker
-      restartPolicy: Never
-      volumes:
-      - name: shared-storage
-        persistentVolumeClaim:
-          claimName: jenkins-pv-claim
-      - name: kaniko-secret
-        secret:
-            secretName: dockercred
-            items:
-            - key: .dockerconfigjson
-              path: config.json
-''')
-
-{
-  node(POD_LABEL)
-	{
-    		stage('Build a gradle project')
-			
-		{
-     		git url: "https://github.com/Yaash19/week6" , branch: "master"
-     		container('gradle')
-			{
-        		stage('Build container')
-				{
-         	 		sh '''
-				 
-                    chmod +x gradlew
-                    ./gradlew build
-                    mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt
-                    '''
-				}
-			}
-		}
-		stage('Build Image')
-		   
-		{
-			container('kaniko')
-			{
-        		stage('Build a calculator program')
-				{
-          			sh '''
-					 
-					echo 'FROM openjdk:8-jre' > Dockerfile
-					echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
-					echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
-					mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
-					/kaniko/executor --context `pwd` --destination narendocker123/calculator:1.0
-					'''
-				}
-			}
-		}
-	}
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: gradle
+    image: gradle:6.3-jdk14
+    command:
+    - sleep
+    args:
+    - 99d
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command:
+    - sleep
+    args:
+    - 9999999
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  restartPolicy: Never
+  volumes:
+  - name: shared-storage
+    persistentVolumeClaim:
+      claimName: jenkins-pv-claim
+  - name: kaniko-secret
+    secret:
+      secretName: dockercred
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+''') {
+  node(POD_LABEL) {
+    stage('Build a gradle project') {      
+      container('gradle') {
+        git 'https://github.com/Yaash19/week6.git'
+        stage("Echo branch") {
+            sh """
+            echo ${env.BRANCH_NAME}
+            """
+        }       
+        stage("Compile Java") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew compileJava"
+            }
+        }  
+        stage("Unit test") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew test"
+            }
+        }
+        stage("Code coverage") {
+            if(env.BRANCH_NAME == 'master') {
+                sh "chmod +x gradlew"
+                sh "./gradlew jacocoTestReport"
+                sh "./gradlew jacocoTestCoverageVerification"
+            }
+        } 
+        stage("Static code analysis") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew checkstyleMain"
+            }
+        }  
+        
+        stage('Package') {
+            sh '''
+            chmod +x gradlew
+            ./gradlew build
+            mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt
+            '''
+            }
+      }
+    }
+    stage('Build Java Image') {
+      container('kaniko') {
+        stage('Build Image') {
+		 if(env.BRANCH_NAME == 'master') {
+			  sh '''
+			  echo 'FROM openjdk:8-jre' > Dockerfile
+			  echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
+			  echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
+			  mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
+			  /kaniko/executor --context `pwd` --destination narendocker123/calculator:1.0
+			  '''
+            }
+		if(env.BRANCH_NAME == 'feature') {
+			  sh '''
+			  echo 'FROM openjdk:8-jre' > Dockerfile
+			  echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
+			  echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
+			  mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
+			  /kaniko/executor --context `pwd` --destination narendocker123/calculator-feature:0.1
+			  '''
+            }
+        }
+      }
+    }
+  }
 }
