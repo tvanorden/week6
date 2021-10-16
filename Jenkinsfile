@@ -5,7 +5,6 @@ pipeline {
      }
      stages {
           stage("Compile Java") {
-		  echo "I am from master branch"
 		steps {
 		   git url: "https://github.com/Yaash19/week6" , branch: "master"
            sh "chmod +x gradlew"
@@ -18,20 +17,20 @@ pipeline {
                }
           }
           stage("Code coverage") {
-		  echo "I am from master branch"
+		  
           	       steps {
                               sh "./gradlew jacocoTestReport"
                               sh "./gradlew jacocoTestCoverageVerification"
                          }
                     }
           stage("Static code analysis") {
-		  echo "I am from master branch"
+		    
           		steps {
-                              sh "./gradlew checkstyleMain"
+                             sh "./gradlew checkstyleMain"
                          }
                     }
                     stage("Package") {
-					echo "I am from master branch"
+					 
           		steps {
                               sh "./gradlew build"
                          }
@@ -81,7 +80,7 @@ podTemplate(yaml: '''
   node(POD_LABEL)
 	{
     		stage('Build a gradle project')
-			echo "I am from master branch"
+			
 		{
      		git url: "https://github.com/Yaash19/week6" , branch: "master"
      		container('gradle')
@@ -89,6 +88,7 @@ podTemplate(yaml: '''
         		stage('Build container')
 				{
          	 		sh '''
+				 
                     chmod +x gradlew
                     ./gradlew build
                     mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt
@@ -97,14 +97,14 @@ podTemplate(yaml: '''
 			}
 		}
 		stage('Build Image')
-		echo "I am from master branch"
+		   
 		{
 			container('kaniko')
 			{
         		stage('Build a calculator program')
-				echo "I am from master branch"
 				{
           			sh '''
+					 
 					echo 'FROM openjdk:8-jre' > Dockerfile
 					echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
 					echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
