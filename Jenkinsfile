@@ -41,7 +41,7 @@ spec:
         git 'https://github.com/Yaash19/week6.git'
         stage("Echo branch") {
             sh """
-            echo ${env.BRANCH_NAME}
+            echo ${env.GIT_BRANCH}
             """
         }       
         stage("Compile Java") {
