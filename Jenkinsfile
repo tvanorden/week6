@@ -1,5 +1,5 @@
 podTemplate(yaml: '''
-apiVersion: v1
+apiVersion: v1 
 kind: Pod
 spec:
   containers:
@@ -39,6 +39,36 @@ spec:
     stage('Build a gradle project') {      
       container('gradle') {
         git 'https://github.com/Yaash19/week6.git'
+        stage("Echo branch") {
+            sh """
+            echo ${env.GIT_BRANCH}
+            """
+        }       
+        stage("Compile Java") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew compileJava"
+            }
+        }  
+        stage("Unit test") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew test"
+            }
+        }
+        stage("Code coverage") {
+            if(env.BRANCH_NAME == 'master') {
+                sh "chmod +x gradlew"
+                sh "./gradlew jacocoTestReport"
+                sh "./gradlew jacocoTestCoverageVerification"
+            }
+        } 
+        stage("Static code analysis") {
+            if(env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'feature' ) {
+                sh "chmod +x gradlew"
+                sh "./gradlew checkstyleMain"
+            }
+        }  
         
         stage('Package') {
             sh '''
@@ -52,13 +82,24 @@ spec:
     stage('Build Java Image') {
       container('kaniko') {
         stage('Build Image') {
-			sh '''
+		 if(env.BRANCH_NAME == 'master') {
+			  sh '''
 			  echo 'FROM openjdk:8-jre' > Dockerfile
 			  echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
 			  echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
 			  mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
 			  /kaniko/executor --context `pwd` --destination narendocker123/calculator:1.0
 			  '''
+            }
+		if(env.BRANCH_NAME == 'feature') {
+			  sh '''
+			  echo 'FROM openjdk:8-jre' > Dockerfile
+			  echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
+			  echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
+			  mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
+			  /kaniko/executor --context `pwd` --destination narendocker123/calculator-feature:0.1
+			  '''
+            }
         }
       }
     }
