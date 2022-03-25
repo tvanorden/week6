@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: calculator
-        image: narendocker123/calculator-feature:0.1
+        image: tvan8310/calculator-feature:0.1
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
